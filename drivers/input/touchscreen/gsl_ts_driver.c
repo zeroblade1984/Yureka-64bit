@@ -82,8 +82,11 @@ typedef enum{
 static GE_T gsl_gesture_status = GE_DISABLE;
 static volatile unsigned int gsl_gesture_flag = 0;
 static char gsl_gesture_c = 0;
+static bool dozing = false;
 struct timeval startup;
 #endif
+struct timer_list startup_timer;
+static bool timer_expired = false;
 
 static volatile int gsl_halt_flag = 0;
 
@@ -362,8 +365,7 @@ static unsigned int gsl_read_oneframe_data(unsigned int *data,
 	u8 buf_a5[4]={0x00,0x00,0x00,0xa5};
 	u8 buf_zero[4]={0x00,0x00,0x00,0x00};
 	u32 buf32;
-	struct timeval start;
-	struct timeval end;
+	unsigned long end_time;
 
 	printk("tp-gsl-gesture %s\n",__func__);
 	printk("gsl_read_oneframe_data:::addr=%x,len=%x\n",addr,len);
@@ -373,7 +375,7 @@ static unsigned int gsl_read_oneframe_data(unsigned int *data,
 		gsl_ts_write(ddata->client,0xf0,&reg_a[0], 4);
 		buf_a5[2] = i;
 		gsl_ts_write(ddata->client,0x08,&buf_a5[0], 4);
-		do_gettimeofday(&start);
+		end_time = jiffies + msecs_to_jiffies(100);
 		while(1)
 		{
 			gsl_ts_read(ddata->client,0xbc,(u8 *)&buf32,4);
@@ -393,8 +395,7 @@ static unsigned int gsl_read_oneframe_data(unsigned int *data,
 				}
 				break;
 			}
-			do_gettimeofday(&end);
-			if(((end.tv_sec-start.tv_sec)*1000+(end.tv_usec-start.tv_usec)/1000) < 100)
+			if (time_before(jiffies, end_time))
 				continue;
 			gsl_ts_write(ddata->client,0xf0,&reg_a[0], 4);
 			gsl_ts_write(ddata->client,0x08,&buf_zero[0], 4);
@@ -447,6 +448,12 @@ static void gsl_io_control(struct i2c_client *client)
 #endif
 }
 
+static void startup_timer_callback(unsigned long data)
+{
+	timer_expired = true;
+	del_timer(&startup_timer);
+}
+
 static void gsl_start_core(struct i2c_client *client)
 {
 	//u8 tmp = 0x00;
@@ -458,7 +465,11 @@ static void gsl_start_core(struct i2c_client *client)
 	gsl_DataInit(gsl_cfg_table[gsl_cfg_index].data_id);
 	}
 #endif	
-	do_gettimeofday(&startup);
+	if (!timer_pending(&startup_timer)) {
+		timer_expired = false;
+		setup_timer(&startup_timer, startup_timer_callback, 0);
+		mod_timer(&startup_timer, jiffies + msecs_to_jiffies(100));
+	}
 }
 
 static void gsl_reset_core(struct i2c_client *client)
@@ -1406,6 +1417,7 @@ static void gsl_enter_doze(struct gsl_ts_data *ts, bool bCharacterGesture)
 	//gsl_gesture_status = GE_NOWORK;
 	msleep(10);
 	gsl_gesture_status = GE_ENABLE;
+	dozing = true;
 
 }
 static void gsl_quit_doze(struct gsl_ts_data *ts)
@@ -1413,6 +1425,7 @@ static void gsl_quit_doze(struct gsl_ts_data *ts)
 	u8 buf[4] = {0};
 	//u32 tmp;
 
+	dozing = false;
 	gsl_gesture_status = GE_DISABLE;
 	free_irq(ts->client->irq,ddata);
 		
@@ -1642,10 +1655,9 @@ static void gsl_report_work(struct work_struct *work)
 		//print_info("GSL:::0x80=%02x%02x%02x%02x[%d]\n",buf[3],buf[2],buf[1],buf[0],test_count++);
 		//print_info("GSL:::0x84=%02x%02x%02x%02x\n",buf[7],buf[6],buf[5],buf[4]);
 		//print_info("GSL:::0x88=%02x%02x%02x%02x\n",buf[11],buf[10],buf[9],buf[8]);
+		if(GE_ENABLE == gsl_gesture_status && ((gsl_gesture_flag == 1)||(gsl_gesture_flag == 2)))
 		{
-			struct timeval now;
-			do_gettimeofday(&now);
-			if(((now.tv_sec-startup.tv_sec)*1000+(now.tv_usec-startup.tv_usec)/1000) <= 100)
+			if (!timer_expired)
 			{
 				printk("gsl_report_work: delta time <= 100.\n");
 				goto schedule;
@@ -1797,7 +1809,6 @@ schedule:
 i2c_lock_schedule:
 #endif	
 	enable_irq(client->irq);
-
 }
 
 static int gsl_request_input_dev(struct gsl_ts_data *ddata)
@@ -1978,7 +1989,7 @@ static void gsl_ts_resume(void)
 
 	/*Gesture Resume*/
 	#ifdef GSL_GESTURE
-		if((gsl_gesture_flag == 1)||(gsl_gesture_flag == 2)){
+		if((gsl_gesture_flag == 1)||(gsl_gesture_flag == 2) || dozing){
 			gsl_quit_doze(ddata);
 			{
 			int err = 0;
