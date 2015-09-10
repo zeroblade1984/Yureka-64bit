@@ -38,10 +38,11 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
 	msm8909-mtp-smb1360.dtb \
 	msm8909-1gb-qrd-skua.dtb \
 	msm8909-1gb-cdp.dtb \
-	msm8909-1gb-mtp.dtb \
-	msm8909-rcm.dtb
+	msm8909-1gb-mtp.dtb
 ifeq ($(CONFIG_MACH_YULONG_MSM8939),y)
 dtb-$(CONFIG_ARCH_MSM8916) += msm8939-cp8675-i01-p0.dtb
+else ifeq ($(CONFIG_MACH_HAIER_MSM8916),y)
+dtb-$(CONFIG_ARCH_MSM8916) += msm8916-g36c1h.dtb
 else ifeq ($(CONFIG_MACH_WINGTECH_MSM8916),y)
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-t86519a1.dtb
 else
@@ -74,6 +75,13 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8939-mtp-jdi.dtb \
 	msm8939-mtp-smb1360.dtb \
 	msm8939-mtp-wcd9306.dtb \
+	msm8939-v3.0-qrd-skuk.dtb \
+	msm8939-v3.0-cdp.dtb \
+	msm8939-v3.0-cdp-jdi.dtb \
+	msm8939-v3.0-mtp.dtb \
+	msm8939-v3.0-mtp-jdi.dtb \
+	msm8939-v3.0-mtp-smb1360.dtb \
+	msm8939-v3.0-mtp-wcd9306.dtb \
 	msm8936-qrd-skuk.dtb \
 	msm8936-cdp.dtb \
 	msm8936-cdp-smb1360.dtb \
@@ -81,7 +89,13 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8936-mtp-smb1360.dtb \
 	msm8936-mtp-wcd9306.dtb \
 	msmtellurium-sim.dtb \
-	msmtellurium-rumi.dtb
+	msmtellurium-rumi.dtb \
+	msm8929-cdp.dtb \
+	msm8929-mtp.dtb \
+	msm8929-mtp-smb1360.dtb \
+	msm8929-mtp-jdi-smb1360.dtb \
+	msm8929-mtp-wcd9306-smb1360.dtb \
+	msm8929-cdp-jdi.dtb
 endif
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-fluid.dtb \

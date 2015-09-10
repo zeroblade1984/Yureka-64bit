@@ -2035,6 +2035,11 @@ int goodix_get_wakeup_gesture(char*  gesture)
     	return sprintf(gesture, "%s", (char *)wakeup_slide);
 }
 
+int goodix_get_gesture_ctrl(char *gesture_ctrl)
+{
+    return sprintf(gesture_ctrl, "0x%08x", support_gesture);
+}
+
 int goodix_gesture_ctrl(const char*  gesture_buf)
 {
 	char *gesture;
@@ -2235,6 +2240,7 @@ touchscreen_ops_tpye goodix_ops=
 	.get_vendor				= goodix_vendor,
 #if GTP_SLIDE_WAKEUP
 	.get_wakeup_gesture			= goodix_get_wakeup_gesture,
+	.get_gesture_ctrl			= goodix_get_gesture_ctrl,
 	.gesture_ctrl				=goodix_gesture_ctrl,
 #endif
 };
@@ -2571,6 +2577,20 @@ static int goodix_ts_wakeup(void)
 	return 0;
 }
 
+static int panel_xres = 0;
+
+static int __init goodix_parse_xres(char *str)
+{
+	if (!str)
+		return -EINVAL;
+
+	panel_xres = simple_strtoul(str, NULL, 0);
+
+	return 0;
+}
+
+early_param("panel.xres", goodix_parse_xres);
+
 static int goodix_ts_parse_dt(struct device *dev, struct tw_platform_data *pdata)
 {
 	struct device_node *np = dev->of_node;
@@ -2595,19 +2615,25 @@ static int goodix_ts_parse_dt(struct device *dev, struct tw_platform_data *pdata
 	printk("[gt]:irq-flag = %d\n", (int)pdata->irqflag);
 	pdata->irqflag = 2;
 
-	ret = of_property_read_u32(np, "goodix,screen_x", &pdata->screen_x);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			"goodix,screen_x", np->full_name);
-		return -ENODEV;
+	if (panel_xres <= 0) {
+		ret = of_property_read_u32(np, "goodix,screen_x", &pdata->screen_x);
+		if (ret) {
+			dev_err(dev, "Looking up %s property in node %s failed",
+					"goodix,screen_x", np->full_name);
+			return -ENODEV;
+		}
+
+		ret = of_property_read_u32(np, "goodix,screen_y", &pdata->screen_y);
+		if (ret) {
+			dev_err(dev, "Looking up %s property in node %s failed",
+					"goodix,screen_y", np->full_name);
+			return -ENODEV;
+		}
+	} else {
+		pdata->screen_x = panel_xres;
+		pdata->screen_y = ( (panel_xres * 16 ) / 9);
 	}
 
-	ret = of_property_read_u32(np, "goodix,screen_y", &pdata->screen_y);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			"goodix,screen_y", np->full_name);
-		return -ENODEV;
-	}
 	printk("[gt]:screen x,y = %d, %d\n", pdata->screen_x, pdata->screen_y);
 
 

@@ -2999,11 +2999,9 @@ int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 
 int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
-	u32 property_id = 0;
-	u64 us_per_frame = 0;
+	u32 property_id = 0, us_per_frame = 0;
 	void *pdata;
-	int rc = 0;
-	u64 fps = 0;
+	int rc = 0, fps = 0;
 	struct hal_frame_rate frame_rate;
 	struct hfi_device *hdev;
 
@@ -3048,7 +3046,7 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
-		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%llu\n",
+		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
 				inst, inst->prop.fps, fps);
 		inst->prop.fps = fps;
 		frame_rate.frame_rate = inst->prop.fps * (0x1<<16);
@@ -3366,6 +3364,14 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 
 	hdev = inst->core->device;
 
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+			inst->core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+			"Core %p in bad state, ignoring prepare buf\n",
+				inst->core);
+		goto exit;
+	}
+
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		break;
@@ -3411,6 +3417,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 			"Buffer type not recognized: %d\n", b->type);
 		break;
 	}
+exit:
 	return rc;
 }
 
